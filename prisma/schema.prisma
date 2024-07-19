@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+//! MODEL FACTURE
+model Facture {
+  facture_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount     Float
+  status     Status   @default(Non_Paye)
+  date_issue DateTime @default(now())
+  due_date   DateTime
+  tax        Float
+
+  //Relation between Fature and User
+  userID String @db.ObjectId
+  user   User   @relation(fields: [userID], references: [user_id])
+
+  // Relation Many to many between Students and factures
+  studentID String[]  @db.ObjectId
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+}
+
+//! MODEL PROJET
+model Projet {
+  projet_id   String  @id @default(auto()) @map("_id") @db.ObjectId
+  title       String  @unique
+  description String?
+
+  // Relation Many to many between Students and Projets
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+  studentID String[]  @db.ObjectId
+}
+
+//! MODEL USER
+model User {
+  user_id  String @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  email    String @unique
+  password String
+  role     Role   @default(User)
+
+  // User can be student or simple user
+  isStudent Student?
+
+  //  User Can be owner of one or many factures
+  facture_Owner Facture[]
+
+  //For each student we have to indicate OTP of registration
+  otp              String
+  otp_expirateDate DateTime
+  attempts         Int?
+}
+
+//! MODEL STUDENT
+model Student {
+  student_id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  age               Int
+  matricule         String        @unique
+  cni               String        @unique
+  addresse          String
+  photo             String?       @default("photo_anonym_0.jpg")
+  phone             String
+  registration_date DateTime      @default(now())
+  tutor             Tutor         @default(Parent)
+  school            String?
+  max_School_level  String?
+  status            StatusStudent @default(Nouveau)
+
+  // Relation many to many entre un etudiant et les quizzes
+  quizzes Quiz[]   @relation(fields: [quizID], references: [quiz_id])
+  quizID  String[] @db.ObjectId
+
+  //Relation One to One entre un etudiant et un utilisateur
+  isStudent User   @relation(fields: [userID], references: [user_id])
+  userID    String @unique @db.ObjectId
+
+  //Relation many to many between students and the courses that he follow
+  courses  Course[] @relation(fields: [courseID], references: [course_id])
+  courseID String[] @db.ObjectId
+
+  //relation one to many between student and Factures
+  factureID String[]  @db.ObjectId
+  factures  Facture[] @relation(fields: [factureID], references: [facture_id])
+
+  //Relation many to many between  students and exercices that he did
+  exerciceID String[]   @db.ObjectId
+  exercices  Exercice[] @relation(fields: [exerciceID], references: [exercice_id])
+
+  //One student can have many certification
+  certificationID String[]        @db.ObjectId
+  certification   Certification[] @relation(fields: [certificationID], references: [certification_id])
+
+  // Relation Many to many between Students and Projets
+  projetID String[] @db.ObjectId
+  projet   Projet[] @relation(fields: [projetID], references: [projet_id])
+}
+
+//! MODEL QUIZ
+model Quiz {
+  quiz_id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Relation many to many Between Quizzes  and Exercicce
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+  studentID String[]  @db.ObjectId
+
+  // Relation one to one Between Quizzes and Exercicce
+  exercice   Exercice @relation(fields: [exerciceID], references: [exercice_id])
+  exerciceID String   @unique @db.ObjectId
+
+  Questions     String[]
+  passing_score Float
+
+  // Relation between Quiz And Courses
+  courses  Course @relation(fields: [courseID], references: [course_id])
+  courseID String @db.ObjectId
+}
+
+//! MODEL EXERCICES
+model Exercice {
+  exercice_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  due_date    DateTime @default(now())
+  submission  String
+
+  // Un exercice peu avoir un quiz ou non
+  haveQuiz Quiz?
+
+  // Relation one to many entre un cours et les exercices 
+  courses  Course @relation(fields: [courseID], references: [course_id])
+  courseID String @db.ObjectId
+
+  // Relation one to many entre un cours et un etudiant 
+  studentID String[]  @db.ObjectId
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+}
+
+//! MODEL CERTIFICATIONS
+model Certification {
+  certification_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  description      String?
+  date_issue       DateTime @default(now())
+
+  // One certification can be delivery to many students
+  studentID String[]  @db.ObjectId
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+}
+
+//! MODEL COURSE
+model Course {
+  course_id   String  @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  content     String
+  prices      Int
+
+  // Un cours peu avoir plusieurs exercices 
+  exercices Exercice[]
+
+  // Un cours peu avoir plusiurs QUIZ
+  quizzes Quiz[]
+
+  studentID String[]  @db.ObjectId
+  student   Student[] @relation(fields: [studentID], references: [student_id])
+}
+
+enum StatusStudent {
+  Nouveau
+  Ancien
+}
+
+// TYPES DE STATUS
+enum Status {
+  Non_Paye
+  En_Cours_De_Payement
+  Paye
+}
+
+// TYPES DE ROLE
+enum Role {
+  SuperAdmin
+  Admin
+  Teacher
+  Student
+  User
+}
+
+// TYPES DE TUTOR
+enum Tutor {
+  Parent
+  Father
+  Mother
+  Other
+}
